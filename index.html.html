@@ -1,0 +1,1698 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GDG Quiz — Business & Lead Challenge</title>
+
+<script>
+// Load Firebase dynamically and init when ready
+function loadFirebase() {
+  return new Promise((resolve, reject) => {
+    const s1 = document.createElement('script');
+    s1.src = 'https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js';
+    s1.onload = () => {
+      const s2 = document.createElement('script');
+      s2.src = 'https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js';
+      s2.onload = resolve;
+      s2.onerror = reject;
+      document.head.appendChild(s2);
+    };
+    s1.onerror = reject;
+    document.head.appendChild(s1);
+  });
+}
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --surface2: #1c1c26;
+    --border: rgba(255,255,255,0.08);
+    --accent: #6c63ff;
+    --accent2: #ff6584;
+    --accent3: #43e97b;
+    --text: #f0f0f5;
+    --muted: rgba(240,240,245,0.45);
+    --correct: #43e97b;
+    --wrong: #ff6584;
+    --timer: #6c63ff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Space Grotesk', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* SCREENS */
+  .screen { display: none; min-height: 100vh; }
+  .screen.active { display: flex; flex-direction: column; }
+
+  /* NOISE TEXTURE */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.4;
+  }
+
+  /* GRID LINES */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(108,99,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(108,99,255,0.03) 1px, transparent 1px);
+    background-size: 60px 60px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* BUTTONS */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 28px;
+    border-radius: 12px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+    position: relative;
+    z-index: 1;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+  }
+  .btn-primary:hover { background: #7c74ff; transform: translateY(-1px); }
+  .btn-outline {
+    background: transparent;
+    color: var(--text);
+    border: 1.5px solid var(--border);
+  }
+  .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-danger { background: var(--wrong); color: #fff; }
+  .btn-success { background: var(--correct); color: #0a0f0a; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  /* CARD */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 28px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* INPUT */
+  .input {
+    width: 100%;
+    padding: 14px 18px;
+    background: var(--surface2);
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    color: var(--text);
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 16px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .input:focus { border-color: var(--accent); }
+  .input::placeholder { color: var(--muted); }
+
+  /* ===================== LANDING ===================== */
+  #screen-landing {
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    gap: 40px;
+  }
+  .landing-hero {
+    text-align: center;
+    position: relative;
+    z-index: 1;
+  }
+  .landing-badge {
+    display: inline-block;
+    padding: 6px 16px;
+    background: rgba(108,99,255,0.15);
+    border: 1px solid rgba(108,99,255,0.3);
+    border-radius: 100px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 24px;
+  }
+  .landing-title {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(42px, 8vw, 80px);
+    font-weight: 800;
+    line-height: 0.95;
+    letter-spacing: -0.02em;
+    margin-bottom: 16px;
+  }
+  .landing-title span { color: var(--accent); }
+  .landing-sub {
+    font-size: 18px;
+    color: var(--muted);
+    max-width: 480px;
+    margin: 0 auto 40px;
+    line-height: 1.6;
+  }
+  .landing-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  /* ===================== HOST SETUP ===================== */
+  #screen-host {
+    padding: 40px 20px;
+    align-items: center;
+    justify-content: center;
+  }
+  .host-container {
+    width: 100%;
+    max-width: 600px;
+    position: relative;
+    z-index: 1;
+  }
+  .host-header {
+    margin-bottom: 32px;
+    text-align: center;
+  }
+  .host-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 32px;
+    font-weight: 800;
+  }
+  .section-label {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+  .qr-box {
+    background: #fff;
+    border-radius: 16px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 16px;
+    width: 180px;
+    height: 180px;
+  }
+  .session-url {
+    font-family: monospace;
+    font-size: 11px;
+    color: var(--muted);
+    word-break: break-all;
+    text-align: center;
+    margin-bottom: 24px;
+  }
+  .players-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 240px;
+    overflow-y: auto;
+  }
+  .player-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background: var(--surface2);
+    border-radius: 10px;
+    animation: slideIn 0.3s ease;
+  }
+  @keyframes slideIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+  .avatar-mini { font-size: 24px; }
+  .player-name-text { font-weight: 500; font-size: 15px; }
+  .players-count {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+
+  /* ===================== JOIN ===================== */
+  #screen-join {
+    padding: 40px 20px;
+    align-items: center;
+    justify-content: center;
+  }
+  .join-container {
+    width: 100%;
+    max-width: 420px;
+    position: relative;
+    z-index: 1;
+  }
+  .join-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 36px;
+    font-weight: 800;
+    margin-bottom: 8px;
+    text-align: center;
+  }
+  .join-sub {
+    color: var(--muted);
+    text-align: center;
+    margin-bottom: 32px;
+  }
+  .avatar-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+  .avatar-option {
+    aspect-ratio: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    background: var(--surface2);
+    border: 2px solid transparent;
+    border-radius: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 28px;
+    padding: 10px;
+  }
+  .avatar-option:hover { border-color: var(--accent); background: rgba(108,99,255,0.1); }
+  .avatar-option.selected { border-color: var(--accent); background: rgba(108,99,255,0.15); }
+  .avatar-label { font-size: 9px; color: var(--muted); text-align: center; font-weight: 500; }
+
+  /* ===================== WAITING ROOM ===================== */
+  #screen-waiting {
+    padding: 40px 20px;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+  .waiting-container {
+    position: relative;
+    z-index: 1;
+    max-width: 400px;
+  }
+  .waiting-avatar {
+    font-size: 80px;
+    margin-bottom: 20px;
+    animation: float 3s ease-in-out infinite;
+  }
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-12px); }
+  }
+  .waiting-name {
+    font-family: 'Syne', sans-serif;
+    font-size: 28px;
+    font-weight: 800;
+    margin-bottom: 8px;
+  }
+  .waiting-status {
+    color: var(--muted);
+    margin-bottom: 32px;
+  }
+  .pulse-ring {
+    width: 16px;
+    height: 16px;
+    background: var(--accent);
+    border-radius: 50%;
+    display: inline-block;
+    animation: pulse 1.5s infinite;
+    margin-right: 8px;
+  }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(108,99,255,0.5); } 70% { box-shadow: 0 0 0 10px rgba(108,99,255,0); } 100% { box-shadow: 0 0 0 0 rgba(108,99,255,0); } }
+
+  /* ===================== QUIZ ===================== */
+  #screen-quiz {
+    padding: 20px;
+    min-height: 100vh;
+  }
+  .quiz-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    position: relative;
+    z-index: 1;
+  }
+  .quiz-progress {
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 500;
+  }
+  .quiz-score-display {
+    font-size: 13px;
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .timer-container {
+    position: relative;
+    width: 56px;
+    height: 56px;
+  }
+  .timer-svg { transform: rotate(-90deg); }
+  .timer-bg { fill: none; stroke: var(--surface2); stroke-width: 4; }
+  .timer-progress { fill: none; stroke: var(--accent); stroke-width: 4; stroke-linecap: round; transition: stroke-dashoffset 1s linear, stroke 0.3s; }
+  .timer-text {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 700;
+    font-family: 'Syne', sans-serif;
+  }
+  .question-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 32px;
+    margin-bottom: 24px;
+    position: relative;
+    z-index: 1;
+  }
+  .question-category {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 16px;
+  }
+  .question-text {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(18px, 3vw, 24px);
+    font-weight: 700;
+    line-height: 1.3;
+  }
+  .answers-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    position: relative;
+    z-index: 1;
+  }
+  @media (max-width: 480px) { .answers-grid { grid-template-columns: 1fr; } }
+  .answer-btn {
+    padding: 18px 20px;
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 16px;
+    color: var(--text);
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: relative;
+    overflow: hidden;
+  }
+  .answer-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--accent);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .answer-btn:hover:not(:disabled) { border-color: var(--accent); }
+  .answer-btn:hover:not(:disabled)::before { opacity: 0.08; }
+  .answer-btn.selected { border-color: var(--accent); background: rgba(108,99,255,0.15); }
+  .answer-btn.correct { border-color: var(--correct); background: rgba(67,233,123,0.15); }
+  .answer-btn.wrong { border-color: var(--wrong); background: rgba(255,101,132,0.15); }
+  .answer-btn:disabled { cursor: default; }
+  .answer-letter {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: var(--surface2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    flex-shrink: 0;
+    transition: background 0.2s;
+  }
+  .answer-btn.correct .answer-letter { background: var(--correct); color: #0a0f0a; }
+  .answer-btn.wrong .answer-letter { background: var(--wrong); color: #fff; }
+  .feedback-banner {
+    padding: 16px 24px;
+    border-radius: 14px;
+    font-size: 15px;
+    font-weight: 600;
+    margin-top: 16px;
+    text-align: center;
+    display: none;
+    position: relative;
+    z-index: 1;
+    animation: slideIn 0.3s ease;
+  }
+  .feedback-banner.correct { background: rgba(67,233,123,0.15); color: var(--correct); display: block; }
+  .feedback-banner.wrong { background: rgba(255,101,132,0.15); color: var(--wrong); display: block; }
+
+  /* HOST QUIZ CONTROLS */
+  .host-quiz-controls {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 100;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  /* ===================== RESULTS ===================== */
+  #screen-results {
+    padding: 40px 20px;
+    align-items: center;
+  }
+  .results-container {
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+    position: relative;
+    z-index: 1;
+  }
+  .results-header {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+  .results-title {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(36px, 6vw, 64px);
+    font-weight: 800;
+    line-height: 0.95;
+    margin-bottom: 12px;
+  }
+  .podium {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 48px;
+  }
+  .podium-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  .podium-avatar { font-size: 36px; }
+  .podium-name { font-size: 14px; font-weight: 600; text-align: center; max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .podium-score { font-size: 12px; color: var(--accent); font-weight: 700; }
+  .podium-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px 8px 0 0;
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 18px;
+    width: 80px;
+  }
+  .podium-1 { background: linear-gradient(180deg, #FFD700, #FFA500); color: #0a0a0f; height: 120px; }
+  .podium-2 { background: linear-gradient(180deg, #C0C0C0, #A0A0A0); color: #0a0a0f; height: 90px; }
+  .podium-3 { background: linear-gradient(180deg, #CD7F32, #A0522D); color: #fff; height: 70px; }
+
+  .leaderboard-full {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    overflow: hidden;
+    margin-bottom: 32px;
+  }
+  .lb-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s;
+  }
+  .lb-row:last-child { border-bottom: none; }
+  .lb-rank { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 20px; color: var(--muted); min-width: 32px; }
+  .lb-rank.top { color: var(--accent); }
+  .lb-avatar-sm { font-size: 24px; }
+  .lb-name { flex: 1; font-weight: 500; }
+  .lb-score { font-weight: 700; color: var(--accent); font-size: 17px; }
+  .lb-correct { font-size: 12px; color: var(--muted); }
+
+  /* ANALYTICS */
+  .analytics-section {
+    margin-top: 48px;
+  }
+  .analytics-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 28px;
+    font-weight: 800;
+    margin-bottom: 8px;
+  }
+  .analytics-sub {
+    color: var(--muted);
+    font-size: 14px;
+    margin-bottom: 32px;
+  }
+  .analytics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    text-align: center;
+  }
+  .stat-num {
+    font-family: 'Syne', sans-serif;
+    font-size: 36px;
+    font-weight: 800;
+    color: var(--accent);
+  }
+  .stat-label { font-size: 13px; color: var(--muted); margin-top: 4px; }
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 28px;
+    margin-bottom: 16px;
+  }
+  .chart-title { font-weight: 600; margin-bottom: 20px; font-size: 16px; }
+  .question-bar-item {
+    margin-bottom: 16px;
+  }
+  .qb-label { font-size: 13px; color: var(--muted); margin-bottom: 6px; display: flex; justify-content: space-between; }
+  .qb-bar-bg { height: 10px; background: var(--surface2); border-radius: 99px; overflow: hidden; }
+  .qb-bar-fill { height: 100%; border-radius: 99px; transition: width 1s cubic-bezier(0.4,0,0.2,1); }
+
+  /* TOAST */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 20px;
+    font-size: 14px;
+    font-weight: 500;
+    z-index: 999;
+    transition: transform 0.3s;
+    white-space: nowrap;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* ROLE TAG */
+  .role-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    background: rgba(108,99,255,0.12);
+    border: 1px solid rgba(108,99,255,0.25);
+    border-radius: 100px;
+    font-size: 12px;
+    color: var(--accent);
+    font-weight: 600;
+    margin-bottom: 20px;
+  }
+
+  /* CONFETTI */
+  .confetti-piece {
+    position: fixed;
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    animation: confettiFall linear forwards;
+    pointer-events: none;
+    z-index: 1000;
+  }
+  @keyframes confettiFall {
+    0% { transform: translateY(-10px) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+  }
+
+  .divider { height: 1px; background: var(--border); margin: 24px 0; }
+
+  /* HOST LOBBY */
+  .host-lobby-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  @media (max-width: 600px) { .host-lobby-grid { grid-template-columns: 1fr; } }
+
+  /* QUESTION RESULT BANNER */
+  .q-result-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10,10,15,0.85);
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.3s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .q-result-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 40px;
+    text-align: center;
+    max-width: 400px;
+    width: 90%;
+    animation: scaleIn 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  @keyframes scaleIn { from { transform: scale(0.8); } to { transform: scale(1); } }
+  .q-result-emoji { font-size: 64px; margin-bottom: 16px; }
+  .q-result-text { font-family: 'Syne', sans-serif; font-size: 24px; font-weight: 800; margin-bottom: 8px; }
+  .q-result-points { color: var(--accent); font-size: 18px; font-weight: 600; }
+
+  /* MINI LEADERBOARD IN QUIZ */
+  .mini-lb {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 16px;
+    margin-top: 16px;
+    position: relative;
+    z-index: 1;
+  }
+  .mini-lb-title { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+  .mini-lb-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; font-size: 14px; }
+  .mini-lb-rank { font-weight: 700; color: var(--muted); min-width: 20px; }
+  .mini-lb-av { font-size: 18px; }
+  .mini-lb-name { flex: 1; font-weight: 500; }
+  .mini-lb-sc { font-weight: 700; color: var(--accent); }
+</style>
+</head>
+<body>
+
+<!-- LANDING -->
+<div id="screen-landing" class="screen active">
+  <div class="landing-hero" style="margin-top:60px">
+    <div class="landing-badge">GDG Event 2025</div>
+    <div class="landing-title">
+      Business<br><span>&amp; Lead</span><br>Challenge
+    </div>
+    <p class="landing-sub">Interaktivni kviz za sve — od developera do menadžera. Realna pitanja, pravi rezultati.</p>
+    <div class="landing-actions">
+      <button class="btn btn-primary" onclick="goHostSetup()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5,3 19,12 5,21"/></svg>
+        Pokreni sesiju (Host)
+      </button>
+      <button class="btn btn-outline" onclick="goJoin()">
+        Pridruži se kvizu
+      </button>
+    </div>
+  </div>
+  <div style="display:flex;gap:32px;flex-wrap:wrap;justify-content:center;position:relative;z-index:1;">
+    <div style="text-align:center">
+      <div style="font-family:'Syne',sans-serif;font-size:32px;font-weight:800;color:var(--accent)">10</div>
+      <div style="font-size:13px;color:var(--muted)">pitanja</div>
+    </div>
+    <div style="text-align:center">
+      <div style="font-family:'Syne',sans-serif;font-size:32px;font-weight:800;color:var(--accent2)">8</div>
+      <div style="font-size:13px;color:var(--muted)">avatara</div>
+    </div>
+    <div style="text-align:center">
+      <div style="font-family:'Syne',sans-serif;font-size:32px;font-weight:800;color:var(--accent3)">∞</div>
+      <div style="font-size:13px;color:var(--muted)">igrača</div>
+    </div>
+  </div>
+</div>
+
+<!-- HOST SETUP -->
+<div id="screen-host" class="screen">
+  <div class="host-container">
+    <div class="host-header">
+      <div class="role-tag">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        Host Panel
+      </div>
+      <div class="host-title">Sesija je kreirana</div>
+    </div>
+    <div class="host-lobby-grid">
+      <div class="card">
+        <div class="section-label">QR Kod za igrače</div>
+        <div class="qr-box" id="qr-container"></div>
+        <div class="session-url" id="session-url-display"></div>
+        <button class="btn btn-outline" style="width:100%;margin-bottom:8px" onclick="copyLink()">Kopiraj link</button>
+      </div>
+      <div class="card">
+        <div class="section-label">Igrači u čekaonici</div>
+        <div class="players-count" id="players-count">0 igrača čeka...</div>
+        <div class="players-list" id="players-list"></div>
+      </div>
+    </div>
+    <div style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn btn-primary" id="start-quiz-btn" onclick="hostStartQuiz()" disabled style="flex:1">
+        Pokreni kviz
+      </button>
+      <button class="btn btn-outline" onclick="showScreen('screen-landing')">Nazad</button>
+    </div>
+  </div>
+</div>
+
+<!-- JOIN -->
+<div id="screen-join" class="screen">
+  <div class="join-container">
+    <div class="join-title">Zdravo! 👋</div>
+    <p class="join-sub">Unesi ime i odaberi lika</p>
+    <div class="card" style="margin-bottom:16px">
+      <div class="section-label" style="margin-bottom:12px">Tvoje ime</div>
+      <input type="text" class="input" id="player-name-input" placeholder="Upiši nadimak..." maxlength="20">
+    </div>
+    <div class="card" style="margin-bottom:20px">
+      <div class="section-label" style="margin-bottom:12px">Odaberi avatar</div>
+      <div class="avatar-grid" id="avatar-grid"></div>
+    </div>
+    <button class="btn btn-primary" style="width:100%" onclick="joinSession()">Uđi u kviz →</button>
+    <button class="btn btn-outline" style="width:100%;margin-top:8px" onclick="showScreen('screen-landing')">Nazad</button>
+  </div>
+</div>
+
+<!-- WAITING ROOM -->
+<div id="screen-waiting" class="screen">
+  <div class="waiting-container">
+    <div class="waiting-avatar" id="waiting-avatar">🧑‍💻</div>
+    <div class="waiting-name" id="waiting-name">Igrač</div>
+    <p class="waiting-status">Sačekaj da host pokrene kviz</p>
+    <div style="display:flex;align-items:center;justify-content:center;gap:8px;color:var(--muted);font-size:14px">
+      <div class="pulse-ring"></div>
+      <span id="waiting-player-count">Čeka se...</span>
+    </div>
+  </div>
+</div>
+
+<!-- QUIZ -->
+<div id="screen-quiz" class="screen">
+  <div class="quiz-header">
+    <div class="quiz-progress" id="quiz-progress">Pitanje 1/10</div>
+    <div class="timer-container">
+      <svg class="timer-svg" width="56" height="56" viewBox="0 0 56 56">
+        <circle class="timer-bg" cx="28" cy="28" r="24"/>
+        <circle class="timer-progress" id="timer-circle" cx="28" cy="28" r="24" stroke-dasharray="150.8" stroke-dashoffset="0"/>
+      </svg>
+      <div class="timer-text" id="timer-display">20</div>
+    </div>
+    <div class="quiz-score-display" id="quiz-score">0 pts</div>
+  </div>
+
+  <div class="question-card">
+    <div class="question-category" id="q-category">Kategorija</div>
+    <div class="question-text" id="q-text">Pitanje...</div>
+  </div>
+
+  <div class="answers-grid" id="answers-grid"></div>
+  <div class="feedback-banner" id="feedback-banner"></div>
+
+  <div class="mini-lb" id="mini-lb" style="display:none">
+    <div class="mini-lb-title">Trenutni poredak</div>
+    <div id="mini-lb-rows"></div>
+  </div>
+
+  <!-- Host controls -->
+  <div class="host-quiz-controls" id="host-quiz-controls" style="display:none">
+    <button class="btn btn-outline" onclick="hostNextQuestion()">Sledeće pitanje →</button>
+    <button class="btn btn-danger" onclick="hostEndQuiz()">Završi kviz</button>
+  </div>
+</div>
+
+<!-- RESULTS -->
+<div id="screen-results" class="screen">
+  <div class="results-container">
+    <div class="results-header">
+      <div class="results-title">Rezultati! 🎉</div>
+      <div style="color:var(--muted);font-size:16px">Kviz je završen. Evo ko je pobedio.</div>
+    </div>
+
+    <div class="podium" id="podium"></div>
+
+    <div class="leaderboard-full" id="leaderboard-full"></div>
+
+    <div class="analytics-section" id="analytics-section">
+      <div class="analytics-title">Analitika sesije</div>
+      <div class="analytics-sub">Pregled znanja grupe — na osnovu odgovora svih učesnika</div>
+      <div class="analytics-grid" id="analytics-stats"></div>
+      <div class="chart-card">
+        <div class="chart-title">Tačnost po pitanju</div>
+        <div id="question-bars"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Distribucija bodova</div>
+        <canvas id="score-chart" height="200"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Najteža pitanja (ispod 50% tačnosti)</div>
+        <div id="hard-questions-list"></div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:32px">
+      <button class="btn btn-primary" onclick="restartApp()">Nova sesija</button>
+      <button class="btn btn-outline" onclick="exportCSV()">Izvezi CSV</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ==================== FIREBASE CONFIG ====================
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAE-_1HJRSHwgbTuM3RP0VmiAE_QQ3pWSE",
+  authDomain: "gdg-quiz-22cc3.firebaseapp.com",
+  databaseURL: "https://gdg-quiz-22cc3-default-rtdb.firebaseio.com",
+  projectId: "gdg-quiz-22cc3",
+  storageBucket: "gdg-quiz-22cc3.firebasestorage.app",
+  messagingSenderId: "413141539701",
+  appId: "1:413141539701:web:7db5ce418b77dbba46113c"
+};
+
+// ==================== DEMO MODE ====================
+// When Firebase isn't configured, app runs in demo mode (single device)
+let DEMO_MODE = true;
+let db = null;
+
+function tryInitFirebase() {
+  if (FIREBASE_CONFIG.apiKey === "demo-key") {
+    console.log("Demo mode: Firebase not configured");
+    return;
+  }
+  loadFirebase().then(() => {
+    try {
+      const app = firebase.initializeApp(FIREBASE_CONFIG);
+      db = firebase.database(app);
+      DEMO_MODE = false;
+      console.log("Firebase connected!");
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('s') && STATE.sessionId) {
+        listenForQuizStart();
+      }
+    } catch(e) {
+      console.error("Firebase init error:", e.message);
+      DEMO_MODE = true;
+    }
+  }).catch(e => {
+    console.error("Firebase CDN failed to load:", e);
+    DEMO_MODE = true;
+  });
+}
+
+function listenForQuizStart() {
+  if (DEMO_MODE || !STATE.sessionId) return;
+  db.ref('sessions/' + STATE.sessionId + '/phase').on('value', snap => {
+    if (snap.val() === 'question' && document.getElementById('screen-waiting').classList.contains('active')) {
+      startQuizPhase();
+    }
+    if (snap.val() === 'finished') {
+      clearInterval(STATE.timerInterval);
+      showResults();
+    }
+  });
+}
+
+// ==================== DATA ====================
+const AVATARS = [
+  { emoji: '🧑‍💻', label: 'Developer' },
+  { emoji: '🎨', label: 'Designer' },
+  { emoji: '📊', label: 'PM' },
+  { emoji: '🧪', label: 'Tester' },
+  { emoji: '🚀', label: 'Startup' },
+  { emoji: '🤝', label: 'Sales' },
+  { emoji: '📢', label: 'Marketing' },
+  { emoji: '🧠', label: 'Data' }
+];
+
+const QUESTIONS = [
+  {
+    category: "Komunikacija sa klijentima",
+    text: "Klijent šalje poruku u 23:00 tražeći hitnu izmenu na projektu koji se isporučuje sutra. Kako reaguješ?",
+    answers: [
+      "Odmah odgovaraš i radiš do jutra",
+      "Ne odgovaraš – radno vreme je završeno",
+      "Odgovaraš ujutru, objasniš situaciju i ponudiš rešenje",
+      "Prosleđuješ menadžeru bez odgovora"
+    ],
+    correct: 2
+  },
+  {
+    category: "Follow-up strategije",
+    text: "Poslao/la si ponudu potencijalnom klijentu pre 5 dana i nisi dobio/la odgovor. Šta radiš?",
+    answers: [
+      "Čekaš još 2 nedelje",
+      "Šalješ kratak follow-up sa vrednosnom propozicijom",
+      "Zoveš direktno bez najave",
+      "Smatraš da nisu zainteresovani i odustаješ"
+    ],
+    correct: 1
+  },
+  {
+    category: "CRM osnove",
+    text: "Koji je GLAVNI cilj CRM sistema u prodajnom timu?",
+    answers: [
+      "Praćenje radnog vremena zaposlenih",
+      "Centralizovano upravljanje svim kontaktima i interakcijama",
+      "Automatska izrada faktura",
+      "Dizajn marketinških materijala"
+    ],
+    correct: 1
+  },
+  {
+    category: "Timska dinamika",
+    text: "Kolega kasni sa zadatkom koji blokira tvoj rad. Koji pristup je NAJEFIKASNIJI?",
+    answers: [
+      "Žališ se menadžeru odmah",
+      "Čekaš i ne govoriš ništa",
+      "Direktno ga pitaš o statusu i ponudiš pomoć",
+      "Sam/a preuzimeš zadatak bez najave"
+    ],
+    correct: 2
+  },
+  {
+    category: "Davanje feedback-a",
+    text: "Koji model je NAJEFIKASNIJI za strukturisan feedback?",
+    answers: [
+      "SWOT analiza",
+      "SBI model (Situacija–Ponašanje–Uticaj)",
+      "SMART ciljevi",
+      "Agile Sprint retrospektiva"
+    ],
+    correct: 1
+  },
+  {
+    category: "Upravljanje očekivanjima",
+    text: "Klijent traži funkcionalnost koja nije u ugovoru. Šta je ISPRAVNO?",
+    answers: [
+      "Dodaješ je besplatno da zadovoljiš klijenta",
+      "Odbijаš bez objašnjenja",
+      "Dokumentuješ zahtev i predlažeš change request sa cenom",
+      "Ignorišeš zahtev i nastaviš sa planom"
+    ],
+    correct: 2
+  },
+  {
+    category: "Remote saradnja",
+    text: "Tvoj tim radi remote u različitim vremenskim zonama. Šta je KLJUČNO za uspeh?",
+    answers: [
+      "Zahtevаš da svi budu online u isto vreme",
+      "Jasna async komunikacija, dokumentacija i overlap hours",
+      "Svakodnevni video pozivi od 2 sata",
+      "Sve donosiš sam/a bez konsultacija"
+    ],
+    correct: 1
+  },
+  {
+    category: "Lead Management",
+    text: "Šta je 'lead nurturing' u kontekstu prodajnog ciklusa?",
+    answers: [
+      "Jednokratni cold email kampanja",
+      "Kontinuirano građenje odnosa sa potencijalnim klijentima kroz vredan sadržaj",
+      "Automatsko brisanje neaktivnih leadova",
+      "Direktan poziv na kupovinu odmah"
+    ],
+    correct: 1
+  },
+  {
+    category: "Komunikacija sa klijentima",
+    text: "Projekat kasni 3 dana zbog tehničkog problema. Kada obaveštavaš klijenta?",
+    answers: [
+      "Tek kada problem bude rešen",
+      "Odmah, proaktivno, sa planom i novim rokom",
+      "Kada klijent sam pita",
+      "Na kraju meseca u statusnom izveštaju"
+    ],
+    correct: 1
+  },
+  {
+    category: "Timska dinamika",
+    text: "Šta je psihološka bezbednost u timu?",
+    answers: [
+      "Osiguranje da niko ne radi prekovremeno",
+      "Fizička bezbednost u kancelariji",
+      "Okruženje gde se greške i ideje mogu slobodno iznositi bez straha",
+      "Privatnost ličnih podataka zaposlenih"
+    ],
+    correct: 2
+  }
+];
+
+// ==================== STATE ====================
+let STATE = {
+  role: null, // 'host' | 'player'
+  sessionId: null,
+  playerName: null,
+  playerAvatar: null,
+  currentQuestion: 0,
+  score: 0,
+  answers: [], // per question: { correct, timeLeft, points }
+  players: {}, // playerName -> { avatar, score, answers }
+  quizPhase: 'lobby', // lobby | question | result | finished
+  selectedAvatar: 0,
+  timerInterval: null,
+  timeLeft: 20,
+  answered: false,
+  hostMode: false
+};
+
+// ==================== SCREENS ====================
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// ==================== TOAST ====================
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ==================== LANDING ====================
+function goHostSetup() {
+  STATE.role = 'host';
+  STATE.hostMode = true;
+  STATE.sessionId = 'GDG-' + Math.random().toString(36).substr(2,6).toUpperCase();
+  setupHostScreen();
+  showScreen('screen-host');
+}
+
+function goJoin() {
+  // Check URL params for session ID
+  const params = new URLSearchParams(window.location.search);
+  const sid = params.get('s');
+  if (sid) STATE.sessionId = sid;
+  renderAvatarGrid();
+  showScreen('screen-join');
+}
+
+// ==================== HOST SETUP ====================
+function setupHostScreen() {
+  const joinUrl = window.location.origin + window.location.pathname + '?s=' + STATE.sessionId;
+  document.getElementById('session-url-display').textContent = joinUrl;
+
+  // QR Code
+  const qrContainer = document.getElementById('qr-container');
+  qrContainer.innerHTML = '';
+  try {
+    new QRCode(qrContainer, {
+      text: joinUrl,
+      width: 140,
+      height: 140,
+      colorDark: "#000000",
+      colorLight: "#ffffff",
+      correctLevel: QRCode.CorrectLevel.M
+    });
+  } catch(e) {
+    qrContainer.innerHTML = '<div style="font-size:11px;color:#555;text-align:center">QR lib nije učitan<br>Kopiraj link</div>';
+  }
+
+  if (DEMO_MODE) {
+    setupDemoHostMode();
+  } else {
+    setupFirebaseHostMode();
+  }
+}
+
+function setupDemoHostMode() {
+  // Demo: simulate players joining
+  STATE.players = {};
+  updateHostPlayersList();
+  // Start button enabled for host
+  document.getElementById('start-quiz-btn').disabled = false;
+  showToast('Demo režim: Firebase nije podešen. Kviz radi lokalno.');
+}
+
+function setupFirebaseHostMode() {
+  const sessionRef = db.ref('sessions/' + STATE.sessionId);
+  sessionRef.set({
+    phase: 'lobby',
+    currentQuestion: 0,
+    startedAt: Date.now()
+  });
+  // Listen for players
+  db.ref('sessions/' + STATE.sessionId + '/players').on('value', snap => {
+    STATE.players = snap.val() || {};
+    updateHostPlayersList();
+    const count = Object.keys(STATE.players).length;
+    document.getElementById('start-quiz-btn').disabled = count < 1;
+  });
+}
+
+function updateHostPlayersList() {
+  const players = STATE.players;
+  const list = document.getElementById('players-list');
+  const count = Object.keys(players).length;
+  document.getElementById('players-count').textContent = count + ' igrač' + (count === 1 ? '' : count < 5 ? 'a' : 'a') + ' čeka...';
+  list.innerHTML = Object.entries(players).map(([name, data]) => `
+    <div class="player-item">
+      <span class="avatar-mini">${data.avatar || '🧑‍💻'}</span>
+      <span class="player-name-text">${escHtml(name)}</span>
+    </div>
+  `).join('');
+  document.getElementById('start-quiz-btn').disabled = count < 1;
+}
+
+function copyLink() {
+  const url = document.getElementById('session-url-display').textContent;
+  navigator.clipboard.writeText(url).then(() => showToast('Link kopiran!'));
+}
+
+function hostStartQuiz() {
+  if (DEMO_MODE) {
+    // Add demo players
+    STATE.players = {
+      'Ana': { avatar: '🎨', score: 0, answers: [] },
+      'Marko': { avatar: '🧑‍💻', score: 0, answers: [] },
+      'Jovana': { avatar: '📊', score: 0, answers: [] }
+    };
+    STATE.role = 'host';
+    STATE.playerName = 'Host';
+    STATE.playerAvatar = '🚀';
+    STATE.score = 0;
+    STATE.answers = [];
+    STATE.currentQuestion = 0;
+    startQuizPhase();
+  } else {
+    db.ref('sessions/' + STATE.sessionId + '/phase').set('question');
+    db.ref('sessions/' + STATE.sessionId + '/currentQuestion').set(0);
+    STATE.role = 'host';
+    startQuizPhase();
+  }
+}
+
+// ==================== JOIN ====================
+function renderAvatarGrid() {
+  const grid = document.getElementById('avatar-grid');
+  grid.innerHTML = AVATARS.map((a, i) => `
+    <div class="avatar-option ${i === STATE.selectedAvatar ? 'selected' : ''}" onclick="selectAvatar(${i})">
+      <span style="font-size:28px">${a.emoji}</span>
+      <span class="avatar-label">${a.label}</span>
+    </div>
+  `).join('');
+}
+
+function selectAvatar(i) {
+  STATE.selectedAvatar = i;
+  renderAvatarGrid();
+}
+
+function joinSession() {
+  const name = document.getElementById('player-name-input').value.trim();
+  if (!name) { showToast('Unesi ime!'); return; }
+  if (!STATE.sessionId) {
+    showToast('Nema aktivne sesije. Skenuj QR kod ili traži link od hosta.');
+    return;
+  }
+  STATE.playerName = name;
+  STATE.playerAvatar = AVATARS[STATE.selectedAvatar].emoji;
+  STATE.role = 'player';
+  STATE.score = 0;
+  STATE.answers = [];
+
+  if (DEMO_MODE) {
+    if (!STATE.players) STATE.players = {};
+    STATE.players[name] = { avatar: STATE.playerAvatar, score: 0, answers: [] };
+    showWaitingRoom();
+    showToast('Demo: Čekaj da host pokrene kviz na istom uređaju!');
+  } else {
+    const playerRef = db.ref('sessions/' + STATE.sessionId + '/players/' + name);
+    playerRef.set({ avatar: STATE.playerAvatar, score: 0, answers: [] });
+    showWaitingRoom();
+    listenForQuizStart();
+  }
+}
+
+function showWaitingRoom() {
+  document.getElementById('waiting-avatar').textContent = STATE.playerAvatar;
+  document.getElementById('waiting-name').textContent = STATE.playerName;
+  showScreen('screen-waiting');
+  if (!DEMO_MODE) {
+    db.ref('sessions/' + STATE.sessionId + '/players').on('value', snap => {
+      const p = snap.val() || {};
+      const count = Object.keys(p).length;
+      document.getElementById('waiting-player-count').textContent = count + ' igrača čeka na hosta';
+    });
+  }
+}
+
+// ==================== QUIZ ENGINE ====================
+function startQuizPhase() {
+  STATE.currentQuestion = 0;
+  STATE.score = 0;
+  STATE.answers = [];
+  showScreen('screen-quiz');
+  if (STATE.role === 'host') {
+    document.getElementById('host-quiz-controls').style.display = 'flex';
+    renderQuestion();
+  } else {
+    // Player: listen for host to change question or end quiz
+    renderQuestion();
+    if (!DEMO_MODE) {
+      db.ref('sessions/' + STATE.sessionId + '/currentQuestion').on('value', snap => {
+        const q = snap.val();
+        if (q !== null && q !== STATE.currentQuestion) {
+          STATE.currentQuestion = q;
+          STATE.answered = false;
+          clearInterval(STATE.timerInterval);
+          renderQuestion();
+        }
+      });
+      db.ref('sessions/' + STATE.sessionId + '/phase').on('value', snap => {
+        if (snap.val() === 'finished') {
+          clearInterval(STATE.timerInterval);
+          showResults();
+        }
+      });
+    }
+  }
+}
+
+function renderQuestion() {
+  const q = QUESTIONS[STATE.currentQuestion];
+  STATE.answered = false;
+  STATE.timeLeft = 20;
+
+  document.getElementById('quiz-progress').textContent = `Pitanje ${STATE.currentQuestion + 1}/${QUESTIONS.length}`;
+  document.getElementById('quiz-score').textContent = STATE.score + ' pts';
+  document.getElementById('q-category').textContent = q.category;
+  document.getElementById('q-text').textContent = q.text;
+  document.getElementById('feedback-banner').className = 'feedback-banner';
+  document.getElementById('mini-lb').style.display = 'none';
+
+  const LETTERS = ['A','B','C','D'];
+  document.getElementById('answers-grid').innerHTML = q.answers.map((a, i) => `
+    <button class="answer-btn" onclick="selectAnswer(${i})">
+      <span class="answer-letter">${LETTERS[i]}</span>
+      <span>${escHtml(a)}</span>
+    </button>
+  `).join('');
+
+  // Timer
+  clearInterval(STATE.timerInterval);
+  updateTimerUI(20, 20);
+  STATE.timerInterval = setInterval(() => {
+    STATE.timeLeft--;
+    updateTimerUI(STATE.timeLeft, 20);
+    if (STATE.timeLeft <= 0) {
+      clearInterval(STATE.timerInterval);
+      if (!STATE.answered) autoTimeout();
+    }
+  }, 1000);
+}
+
+function updateTimerUI(t, max) {
+  const circle = document.getElementById('timer-circle');
+  const display = document.getElementById('timer-display');
+  const circumference = 150.8;
+  const offset = circumference * (1 - t / max);
+  circle.style.strokeDashoffset = offset;
+  display.textContent = t;
+  if (t <= 5) {
+    circle.style.stroke = '#ff6584';
+    display.style.color = '#ff6584';
+  } else if (t <= 10) {
+    circle.style.stroke = '#f5a623';
+    display.style.color = '#f5a623';
+  } else {
+    circle.style.stroke = 'var(--accent)';
+    display.style.color = 'var(--text)';
+  }
+}
+
+function selectAnswer(idx) {
+  if (STATE.answered) return;
+  STATE.answered = true;
+  clearInterval(STATE.timerInterval);
+
+  const q = QUESTIONS[STATE.currentQuestion];
+  const correct = idx === q.correct;
+  const points = correct ? Math.max(100, Math.round(100 + STATE.timeLeft * 15)) : 0;
+  STATE.score += points;
+
+  STATE.answers.push({
+    questionIdx: STATE.currentQuestion,
+    selected: idx,
+    correct: correct,
+    points: points,
+    timeLeft: STATE.timeLeft
+  });
+
+  // Update player data
+  if (STATE.players[STATE.playerName]) {
+    STATE.players[STATE.playerName].score = STATE.score;
+    STATE.players[STATE.playerName].answers = STATE.answers;
+  }
+
+  // Visual feedback
+  const btns = document.querySelectorAll('.answer-btn');
+  btns.forEach((b, i) => {
+    b.disabled = true;
+    if (i === q.correct) b.classList.add('correct');
+    else if (i === idx && !correct) b.classList.add('wrong');
+  });
+
+  const fb = document.getElementById('feedback-banner');
+  if (correct) {
+    fb.className = 'feedback-banner correct';
+    fb.textContent = `+${points} bodova! Tačno! 🎉`;
+  } else {
+    fb.className = 'feedback-banner wrong';
+    fb.textContent = `Netačno. Tačan odgovor: ${q.answers[q.correct]}`;
+  }
+
+  document.getElementById('quiz-score').textContent = STATE.score + ' pts';
+
+  // Update firebase
+  if (!DEMO_MODE && STATE.playerName) {
+    db.ref(`sessions/${STATE.sessionId}/players/${STATE.playerName}`).update({
+      score: STATE.score,
+      answers: STATE.answers
+    });
+  }
+
+  // Show mini leaderboard after delay
+  setTimeout(() => showMiniLeaderboard(), 800);
+
+  // Auto-advance after 5s if host
+  if (STATE.role === 'host') {
+    setTimeout(() => {
+      if (STATE.currentQuestion < QUESTIONS.length - 1) {
+        hostNextQuestion();
+      } else {
+        hostEndQuiz();
+      }
+    }, 5000);
+  }
+}
+
+function autoTimeout() {
+  if (STATE.answered) return;
+  STATE.answered = true;
+  STATE.answers.push({
+    questionIdx: STATE.currentQuestion,
+    selected: -1,
+    correct: false,
+    points: 0,
+    timeLeft: 0
+  });
+  const q = QUESTIONS[STATE.currentQuestion];
+  const btns = document.querySelectorAll('.answer-btn');
+  btns.forEach((b, i) => { b.disabled = true; if (i === q.correct) b.classList.add('correct'); });
+  const fb = document.getElementById('feedback-banner');
+  fb.className = 'feedback-banner wrong';
+  fb.textContent = `Vreme isteklo! Tačan odgovor: ${q.answers[q.correct]}`;
+  if (STATE.role === 'host') {
+    setTimeout(() => {
+      if (STATE.currentQuestion < QUESTIONS.length - 1) hostNextQuestion();
+      else hostEndQuiz();
+    }, 4000);
+  }
+}
+
+function showMiniLeaderboard() {
+  const sorted = Object.entries(STATE.players)
+    .sort((a, b) => (b[1].score || 0) - (a[1].score || 0))
+    .slice(0, 5);
+  if (sorted.length < 2) return;
+  const mlb = document.getElementById('mini-lb');
+  mlb.style.display = 'block';
+  document.getElementById('mini-lb-rows').innerHTML = sorted.map(([name, data], i) => `
+    <div class="mini-lb-row">
+      <span class="mini-lb-rank">${i + 1}</span>
+      <span class="mini-lb-av">${data.avatar || '🧑‍💻'}</span>
+      <span class="mini-lb-name">${escHtml(name)}</span>
+      <span class="mini-lb-sc">${data.score || 0}</span>
+    </div>
+  `).join('');
+}
+
+function hostNextQuestion() {
+  clearInterval(STATE.timerInterval);
+  STATE.currentQuestion++;
+  if (STATE.currentQuestion >= QUESTIONS.length) {
+    hostEndQuiz();
+    return;
+  }
+  if (!DEMO_MODE) db.ref('sessions/' + STATE.sessionId + '/currentQuestion').set(STATE.currentQuestion);
+  renderQuestion();
+}
+
+function hostEndQuiz() {
+  clearInterval(STATE.timerInterval);
+  if (!DEMO_MODE) db.ref('sessions/' + STATE.sessionId + '/phase').set('finished');
+  showResults();
+}
+
+// ==================== RESULTS ====================
+function showResults() {
+  showScreen('screen-results');
+  launchConfetti();
+
+  // Gather data
+  const players = STATE.players;
+  // Include self if player role
+  if (STATE.role === 'player' && STATE.playerName) {
+    players[STATE.playerName] = {
+      avatar: STATE.playerAvatar,
+      score: STATE.score,
+      answers: STATE.answers
+    };
+  }
+
+  const sorted = Object.entries(players)
+    .sort((a, b) => (b[1].score || 0) - (a[1].score || 0));
+
+  // Podium
+  renderPodium(sorted);
+
+  // Full leaderboard
+  renderLeaderboard(sorted);
+
+  // Analytics
+  renderAnalytics(sorted);
+}
+
+function renderPodium(sorted) {
+  const top3 = [sorted[1], sorted[0], sorted[2]].filter(Boolean);
+  const orders = [2, 1, 3];
+  const podium = document.getElementById('podium');
+  podium.innerHTML = '';
+  top3.forEach((entry, idx) => {
+    if (!entry) return;
+    const [name, data] = entry;
+    const rank = orders[idx];
+    const el = document.createElement('div');
+    el.className = 'podium-item';
+    el.innerHTML = `
+      <div class="podium-avatar">${data.avatar || '🧑‍💻'}</div>
+      <div class="podium-name">${escHtml(name)}</div>
+      <div class="podium-score">${data.score || 0} pts</div>
+      <div class="podium-bar podium-${rank}">${rank}</div>
+    `;
+    podium.appendChild(el);
+  });
+}
+
+function renderLeaderboard(sorted) {
+  const lb = document.getElementById('leaderboard-full');
+  lb.innerHTML = sorted.map(([name, data], i) => {
+    const correct = (data.answers || []).filter(a => a.correct).length;
+    return `
+    <div class="lb-row">
+      <span class="lb-rank ${i < 3 ? 'top' : ''}">${i + 1}</span>
+      <span class="lb-avatar-sm">${data.avatar || '🧑‍💻'}</span>
+      <span class="lb-name">${escHtml(name)}</span>
+      <span class="lb-correct">${correct}/${QUESTIONS.length} tačnih</span>
+      <span class="lb-score">${data.score || 0}</span>
+    </div>
+  `}).join('');
+}
+
+function renderAnalytics(sorted) {
+  const allPlayers = sorted;
+  const totalPlayers = allPlayers.length;
+  const totalAnswers = allPlayers.reduce((acc, [, d]) => acc + (d.answers || []).length, 0);
+  const totalCorrect = allPlayers.reduce((acc, [, d]) => acc + (d.answers || []).filter(a => a.correct).length, 0);
+  const avgScore = totalPlayers ? Math.round(allPlayers.reduce((acc, [, d]) => acc + (d.score || 0), 0) / totalPlayers) : 0;
+  const accuracy = totalAnswers ? Math.round(totalCorrect / totalAnswers * 100) : 0;
+
+  document.getElementById('analytics-stats').innerHTML = `
+    <div class="stat-card"><div class="stat-num">${totalPlayers}</div><div class="stat-label">Ukupno igrača</div></div>
+    <div class="stat-card"><div class="stat-num">${accuracy}%</div><div class="stat-label">Prosečna tačnost</div></div>
+    <div class="stat-card"><div class="stat-num">${avgScore}</div><div class="stat-label">Prosečan broj bodova</div></div>
+    <div class="stat-card"><div class="stat-num">${totalCorrect}</div><div class="stat-label">Tačnih odgovora ukupno</div></div>
+  `;
+
+  // Per-question accuracy
+  const qAccuracy = QUESTIONS.map((q, qi) => {
+    let correct = 0, total = 0;
+    allPlayers.forEach(([, d]) => {
+      const ans = (d.answers || []).find(a => a.questionIdx === qi);
+      if (ans) { total++; if (ans.correct) correct++; }
+    });
+    return { q, correct, total, pct: total ? Math.round(correct / total * 100) : 0 };
+  });
+
+  const colors = ['#6c63ff','#43e97b','#ff6584','#f5a623','#5ce1e6','#ff9fd4','#b4e54d','#ff7e5f','#45b7d1','#f9ca24'];
+  document.getElementById('question-bars').innerHTML = qAccuracy.map((item, i) => `
+    <div class="question-bar-item">
+      <div class="qb-label">
+        <span>P${i+1}: ${item.q.text.substring(0,50)}...</span>
+        <span style="color:${item.pct >= 60 ? 'var(--correct)' : item.pct >= 40 ? '#f5a623' : 'var(--wrong)'};font-weight:700">${item.pct}%</span>
+      </div>
+      <div class="qb-bar-bg">
+        <div class="qb-bar-fill" style="width:${item.pct}%;background:${colors[i]}"></div>
+      </div>
+    </div>
+  `).join('');
+
+  // Hard questions
+  const hard = qAccuracy.filter(q => q.pct < 50);
+  document.getElementById('hard-questions-list').innerHTML = hard.length
+    ? hard.map(item => `
+      <div style="padding:12px 0;border-bottom:1px solid var(--border)">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+          <span style="font-weight:500;font-size:14px">${item.q.category}</span>
+          <span style="color:var(--wrong);font-weight:700">${item.pct}% tačnih</span>
+        </div>
+        <div style="font-size:13px;color:var(--muted)">${item.q.text}</div>
+        <div style="font-size:12px;color:var(--accent);margin-top:6px">Tačan odgovor: ${item.q.answers[item.q.correct]}</div>
+      </div>
+    `).join('')
+    : '<div style="color:var(--muted);text-align:center;padding:20px">Odlično! Nema pitanja ispod 50% tačnosti.</div>';
+
+  // Score distribution chart
+  const scores = allPlayers.map(([, d]) => d.score || 0);
+  const ctx = document.getElementById('score-chart').getContext('2d');
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: allPlayers.map(([name]) => name),
+      datasets: [{
+        label: 'Bodovi',
+        data: scores,
+        backgroundColor: allPlayers.map((_, i) => colors[i % colors.length]),
+        borderRadius: 8,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: {
+          beginAtZero: true,
+          grid: { color: 'rgba(255,255,255,0.05)' },
+          ticks: { color: 'rgba(240,240,245,0.5)' }
+        },
+        x: {
+          grid: { display: false },
+          ticks: { color: 'rgba(240,240,245,0.5)' }
+        }
+      }
+    }
+  });
+}
+
+// ==================== CONFETTI ====================
+function launchConfetti() {
+  const colors = ['#6c63ff','#ff6584','#43e97b','#f5a623','#5ce1e6'];
+  for (let i = 0; i < 60; i++) {
+    setTimeout(() => {
+      const piece = document.createElement('div');
+      piece.className = 'confetti-piece';
+      piece.style.left = Math.random() * 100 + 'vw';
+      piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+      piece.style.animationDuration = (Math.random() * 2 + 2) + 's';
+      piece.style.animationDelay = (Math.random() * 0.5) + 's';
+      piece.style.transform = `rotate(${Math.random() * 360}deg)`;
+      document.body.appendChild(piece);
+      setTimeout(() => piece.remove(), 4000);
+    }, i * 30);
+  }
+}
+
+// ==================== UTILS ====================
+function escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function exportCSV() {
+  const players = STATE.players;
+  const rows = [['Ime', 'Avatar', 'Ukupno bodova', 'Tačnih odgovora'].join(',')];
+  Object.entries(players).forEach(([name, data]) => {
+    const correct = (data.answers || []).filter(a => a.correct).length;
+    rows.push([`"${name}"`, data.avatar, data.score || 0, correct].join(','));
+  });
+  const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'gdg-quiz-rezultati.csv';
+  a.click();
+}
+
+function restartApp() {
+  STATE = {
+    role: null, sessionId: null, playerName: null, playerAvatar: null,
+    currentQuestion: 0, score: 0, answers: [], players: {},
+    quizPhase: 'lobby', selectedAvatar: 0, timerInterval: null, timeLeft: 20,
+    answered: false, hostMode: false
+  };
+  showScreen('screen-landing');
+}
+
+// ==================== INIT ====================
+window.addEventListener('DOMContentLoaded', function() {
+  tryInitFirebase();
+  // Check URL for session join
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('s')) {
+    STATE.sessionId = urlParams.get('s');
+    renderAvatarGrid();
+    showScreen('screen-join');
+  }
+});
+</script>
+</body>
+</html>
