@@ -727,7 +727,7 @@ function loadFirebase() {
 <!-- LANDING -->
 <div id="screen-landing" class="screen active">
   <div class="landing-hero" style="margin-top:60px">
-    <div class="landing-badge">GDG Event 2025</div>
+    <div class="landing-badge">GDG Event 2026</div>
     <div class="landing-title">
       Business<br><span>&amp; Lead</span><br>Challenge
     </div>
@@ -1317,6 +1317,8 @@ function renderQuestion() {
   document.getElementById('q-category').textContent = q.category;
   document.getElementById('q-text').textContent = q.text;
   document.getElementById('feedback-banner').className = 'feedback-banner';
+  document.getElementById('feedback-banner').textContent = '';
+  document.getElementById('answers-grid').innerHTML = '';
   document.getElementById('mini-lb').style.display = 'none';
 
   const LETTERS = ['A','B','C','D'];
